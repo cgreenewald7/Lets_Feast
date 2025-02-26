@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Future Feast - Recipe Tracker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+        body {
+            background: #1a1a1a;
+            color: #fff;
+            min-height: 100vh;
+        }
+        body.no-scroll {
+            overflow: hidden; /* Prevent scrolling when modal is open */
+        }
+        .nav-bar {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+        .search-bar {
+            width: 70%;
+            padding: 10px;
+            border: 1px solid #00ccff;
+            border-radius: 20px;
+            background: #333;
+            color: #fff;
+            outline: none;
+        }
+        .search-bar:focus {
+            box-shadow: 0 0 10px #00ccff;
+        }
+        .add-btn {
+            padding: 10px 20px;
+            border: none;
+            background: #00ccff;
+            color: #1a1a1a;
+            border-radius: 50px;
+            cursor: pointer;
+        }
+        .add-btn:hover {
+            transform: scale(1.1);
+            transition: transform 0.2s;
+        }
+        .recipe-list {
+            margin-top: 80px;
+            padding: 20px;
+            min-height: 50vh;
+        }
+        .recipe-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            margin: 10px 0;
+            background: #2a2a2a;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        .recipe-item:hover {
+            background: #3a3a3a;
+        }
+        .recipe-image {
+            width: 100px;
+            height: 100px;
+            border-radius: 10px;
+            margin-right: 20px;
+            object-fit: cover;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+        }
+        .modal-content {
+            background: #333;
+            padding: 20px;
+            border-radius: 15px;
+            width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .tabs {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+        }
+        .tab-btn {
+            padding: 10px;
+            background: #444;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .tab-btn.active {
+            background: #00ccff;
+            color: #1a1a1a;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            background: #444;
+            border: 1px solid #00ccff;
+            border-radius: 5px;
+            color: #fff;
+            resize: vertical;
+        }
+        .save-btn, .edit-btn, .delete-btn, .back-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .save-btn, .edit-btn, .back-btn {
+            background: #00ccff;
+            color: #1a1a1a;
+        }
+        .delete-btn {
+            background: #ff4444;
+            color: #fff;
+        }
+        .save-btn:hover, .edit-btn:hover, .back-btn:hover {
+            background: #00b3e6;
+        }
+        .delete-btn:hover {
+            background: #cc3333;
+        }
+        .recipe-view {
+            display: flex;
+            flex-direction: column;
+        }
+        .recipe-view img {
+            width: 200px;
+            height: 200px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .recipe-view h3 {
+            margin-top: 15px;
+        }
+        .recipe-view p {
+            margin: 10px 0;
+            white-space: pre-wrap;
+            height: 150px; /* Taller boxes for ingredients and instructions */
+            overflow-y: auto; /* Scroll within the box if content exceeds height */
+            padding: 10px;
+            background: #2a2a2a;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="nav-bar">
+        <input type="text" class="search-bar" placeholder="Search recipes..." onkeyup="searchRecipes()">
+        <button class="add-btn" onclick="openAddModal()">+</button>
+    </div>
+
+    <div class="recipe-list" id="recipeList">
+        <p>Loading recipes...</p>
+    </div>
+
+    <!-- Add Recipe Modal -->
+    <div class="modal" id="addModal">
+        <div class="modal-content">
+            <div class="tabs">
+                <button class="tab-btn active" onclick="showTab('link')">Link</button>
+                <button class="tab-btn" onclick="showTab('write')">Write</button>
+                <button class="tab-btn" onclick="showTab('upload')">Upload</button>
+            </div>
+            <div id="link" class="tab-content active">
+                <input type="text" id="linkInput" placeholder="Paste recipe URL">
+                <button class="save-btn" onclick="addRecipe('link')">Save</button>
+            </div>
+            <div id="write" class="tab-content">
+                <input type="text" id="writeName" placeholder="Recipe Name">
+                <textarea id="writeIngredients" placeholder="Ingredients (one per line)"></textarea>
+                <textarea id="writeInstructions" placeholder="Instructions"></textarea>
+                <button class="save-btn" onclick="addRecipe('write')">Save</button>
+            </div>
+            <div id="upload" class="tab-content">
+                <input type="text" id="uploadName" placeholder="Recipe Name (from image)">
+                <textarea id="uploadDetails" placeholder="Details from image"></textarea>
+                <button class="save-btn" onclick="addRecipe('upload')">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- View/Edit Recipe Modal -->
+    <div class="modal" id="viewModal">
+        <div class="modal-content">
+            <div id="recipeView" class="recipe-view"></div>
+            <div id="recipeEdit" class="tab-content">
+                <input type="text" id="editName" placeholder="Recipe Name">
+                <textarea id="editIngredients" placeholder="Ingredients (one per line)"></textarea>
+                <textarea id="editInstructions" placeholder="Instructions"></textarea>
+                <button class="save-btn" onclick="saveEditedRecipe()">Save Changes</button>
+            </div>
+            <div>
+                <button class="back-btn" onclick="closeViewModal()">Back</button>
+                <button class="edit-btn" onclick="toggleEdit()">Edit</button>
+                <button class="delete-btn" onclick="deleteRecipe()">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let recipes = [
+            { name: "Spicy Ramen Bowl", image: "placeholder.jpg", ingredients: "Ramen noodles\nChili paste\nSoy sauce\nGreen onions\nEgg", instructions: "Boil water\nCook noodles for 3 minutes\nAdd chili and soy sauce\nTop with green onions\nAdd a boiled egg" },
+            { name: "Lemon Zest Cookies", image: "placeholder.jpg", ingredients: "Flour\nSugar\nLemon zest\nButter\nEgg", instructions: "Mix dry ingredients\nAdd lemon zest\nCream butter and sugar\nCombine all\nBake at 350°F for 12 minutes" },
+            { name: "Garlic Herb Salmon", image: "placeholder.jpg", ingredients: "Salmon fillet\nGarlic\nFresh herbs\nLemon juice\nOlive oil", instructions: "Season salmon with garlic and herbs\nDrizzle with lemon juice\nAdd olive oil\nGrill for 10 minutes\nRest for 5 minutes" }
+        ];
+        let currentRecipeIndex = null;
+
+        function renderRecipes(filter = "") {
+            const recipeList = document.getElementById("recipeList");
+            recipeList.innerHTML = "";
+            const filteredRecipes = recipes.filter(recipe => 
+                recipe.name.toLowerCase().includes(filter.toLowerCase())
+            );
+            if (filteredRecipes.length === 0) {
+                recipeList.innerHTML = "<p>No recipes found.</p>";
+                return;
+            }
+            filteredRecipes.forEach((recipe, index) => {
+                const div = document.createElement("div");
+                div.className = "recipe-item";
+                div.innerHTML = `
+                    <img src="https://via.placeholder.com/100" class="recipe-image" alt="${recipe.name}">
+                    <span>${recipe.name}</span>
+                `;
+                div.onclick = () => viewRecipe(index);
+                recipeList.appendChild(div);
+            });
+        }
+
+        function searchRecipes() {
+            const query = document.querySelector(".search-bar").value;
+            renderRecipes(query);
+        }
+
+        function openAddModal() {
+            document.getElementById("addModal").style.display = "flex";
+            showTab("link");
+        }
+
+        function showTab(tab) {
+            document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active"));
+            document.querySelectorAll(".tab-content").forEach(content => content.classList.remove("active"));
+            document.querySelector(`button[onclick="showTab('${tab}')"]`).classList.add("active");
+            document.getElementById(tab).classList.add("active");
+        }
+
+        function addRecipe(type) {
+            let newRecipe = { image: "placeholder.jpg" };
+            if (type === "link") {
+                const link = document.getElementById("linkInput").value;
+                newRecipe.name = link ? `Recipe from ${link.split("/").pop()}` : "Unnamed Recipe";
+                newRecipe.ingredients = "Imported from link";
+                newRecipe.instructions = "See link";
+            } else if (type === "write") {
+                newRecipe.name = document.getElementById("writeName").value || "Unnamed Recipe";
+                newRecipe.ingredients = document.getElementById("writeIngredients").value || "";
+                newRecipe.instructions = document.getElementById("writeInstructions").value || "";
+            } else if (type === "upload") {
+                newRecipe.name = document.getElementById("uploadName").value || "Uploaded Recipe";
+                newRecipe.ingredients = document.getElementById("uploadDetails").value || "";
+                newRecipe.instructions = "From uploaded image";
+            }
+            recipes.push(newRecipe);
+            renderRecipes();
+            document.getElementById("addModal").style.display = "none";
+            clearAddModal();
+        }
+
+        function clearAddModal() {
+            document.getElementById("linkInput").value = "";
+            document.getElementById("writeName").value = "";
+            document.getElementById("writeIngredients").value = "";
+            document.getElementById("writeInstructions").value = "";
+            document.getElementById("uploadName").value = "";
+            document.getElementById("uploadDetails").value = "";
+        }
+
+        function viewRecipe(index) {
+            currentRecipeIndex = index;
+            const recipe = recipes[index];
+            const viewDiv = document.getElementById("recipeView");
+            viewDiv.innerHTML = `
+                <h2>${recipe.name}</h2>
+                <img src="https://via.placeholder.com/200" alt="${recipe.name}">
+                <h3>Ingredients:</h3>
+                <p>${recipe.ingredients}</p>
+                <h3>Instructions:</h3>
+                <p>${recipe.instructions}</p>
+            `;
+            document.getElementById("recipeEdit").style.display = "none";
+            document.getElementById("recipeView").style.display = "block";
+            document.getElementById("viewModal").style.display = "flex";
+            document.body.classList.add("no-scroll"); // Freeze main page scroll
+        }
+
+        function closeViewModal() {
+            document.getElementById("viewModal").style.display = "none";
+            document.body.classList.remove("no-scroll"); // Re-enable main page scroll
+        }
+
+        function toggleEdit() {
+            const editDiv = document.getElementById("recipeEdit");
+            const recipe = recipes[currentRecipeIndex];
+            if (editDiv.style.display === "none") {
+                document.getElementById("editName").value = recipe.name;
+                document.getElementById("editIngredients").value = recipe.ingredients;
+                document.getElementById("editInstructions").value = recipe.instructions;
+                editDiv.style.display = "block";
+                document.getElementById("recipeView").style.display = "none";
+            } else {
+                editDiv.style.display = "none";
+                document.getElementById("recipeView").style.display = "block";
+            }
+        }
+
+        function saveEditedRecipe() {
+            const recipe = recipes[currentRecipeIndex];
+            recipe.name = document.getElementById("editName").value || "Unnamed Recipe";
+            recipe.ingredients = document.getElementById("editIngredients").value || "";
+            recipe.instructions = document.getElementById("editInstructions").value || "";
+            renderRecipes();
+            viewRecipe(currentRecipeIndex);
+            document.getElementById("recipeEdit").style.display = "none";
+            document.getElementById("recipeView").style.display = "block";
+        }
+
+        function deleteRecipe() {
+            recipes.splice(currentRecipeIndex, 1);
+            document.getElementById("viewModal").style.display = "none";
+            document.body.classList.remove("no-scroll");
+            renderRecipes();
+        }
+
+        // Initial render
+        renderRecipes();
+    </script>
+</body>
+</html>
