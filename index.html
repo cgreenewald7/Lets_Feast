@@ -31,7 +31,7 @@
             z-index: 10;
         }
         .search-bar {
-            width: 70%;
+            width: 50%;
             padding: 10px;
             border: 1px solid #00ccff;
             border-radius: 20px;
@@ -42,15 +42,16 @@
         .search-bar:focus {
             box-shadow: 0 0 10px #00ccff;
         }
-        .add-btn {
+        .add-btn, .meal-plan-btn {
             padding: 10px 20px;
             border: none;
             background: #00ccff;
             color: #1a1a1a;
             border-radius: 50px;
             cursor: pointer;
+            margin-left: 10px;
         }
-        .add-btn:hover {
+        .add-btn:hover, .meal-plan-btn:hover {
             transform: scale(1.1);
             transition: transform 0.2s;
         }
@@ -181,12 +182,23 @@
             background: #2a2a2a;
             border-radius: 5px;
         }
+        .meal-plan-day {
+            margin: 10px 0;
+            padding: 10px;
+            background: #2a2a2a;
+            border-radius: 5px;
+        }
+        .meal-plan-day input {
+            width: 70%;
+            display: inline-block;
+        }
     </style>
 </head>
 <body>
     <div class="nav-bar">
         <input type="text" class="search-bar" placeholder="Search recipes or ingredients..." onkeyup="searchRecipes()">
-        <button class="add-btn" onclick="openAddModal()">Add Recipes +</button>
+        <button class="meal-plan-btn" onclick="openMealPlanModal()">Meal Plan</button>
+        <button class="add-btn" onclick="openAddModal()">Add Recipes</button>
     </div>
 
     <div class="recipe-list" id="recipeList">
@@ -240,13 +252,29 @@
         </div>
     </div>
 
+    <!-- Meal Plan Modal -->
+    <div class="modal" id="mealPlanModal">
+        <div class="modal-content">
+            <h2>Meal Plan (Next 7 Days)</h2>
+            <div id="mealPlanList"></div>
+            <button class="save-btn" onclick="saveMealPlan()">Save</button>
+            <button class="close-btn" onclick="closeMealPlanModal()">Close</button>
+        </div>
+    </div>
+
     <script>
-        let recipes = [
+        let recipes = JSON.parse(localStorage.getItem("recipes")) || [
             { name: "Spicy Ramen Bowl", image: "placeholder.jpg", ingredients: "Ramen noodles\nChili paste\nSoy sauce\nGreen onions\nEgg", instructions: "Boil water\nCook noodles for 3 minutes\nAdd chili and soy sauce\nTop with green onions\nAdd a boiled egg" },
             { name: "Lemon Zest Cookies", image: "placeholder.jpg", ingredients: "Flour\nSugar\nLemon zest\nButter\nEgg", instructions: "Mix dry ingredients\nAdd lemon zest\nCream butter and sugar\nCombine all\nBake at 350°F for 12 minutes" },
             { name: "Garlic Herb Salmon", image: "placeholder.jpg", ingredients: "Salmon fillet\nGarlic\nFresh herbs\nLemon juice\nOlive oil", instructions: "Season salmon with garlic and herbs\nDrizzle with lemon juice\nAdd olive oil\nGrill for 10 minutes\nRest for 5 minutes" }
         ];
+        let mealPlan = JSON.parse(localStorage.getItem("mealPlan")) || {};
         let currentRecipeIndex = null;
+
+        function saveToStorage() {
+            localStorage.setItem("recipes", JSON.stringify(recipes));
+            localStorage.setItem("mealPlan", JSON.stringify(mealPlan));
+        }
 
         function renderRecipes(filter = "") {
             const recipeList = document.getElementById("recipeList");
@@ -279,12 +307,12 @@
         function openAddModal() {
             document.getElementById("addModal").style.display = "flex";
             showTab("link");
-            document.body.classList.add("no-scroll"); // Freeze scroll when add modal opens
+            document.body.classList.add("no-scroll");
         }
 
         function closeAddModal() {
             document.getElementById("addModal").style.display = "none";
-            document.body.classList.remove("no-scroll"); // Re-enable scroll
+            document.body.classList.remove("no-scroll");
             clearAddModal();
         }
 
@@ -312,6 +340,7 @@
                 newRecipe.instructions = "From uploaded image";
             }
             recipes.push(newRecipe);
+            saveToStorage();
             renderRecipes();
             document.getElementById("addModal").style.display = "none";
             document.body.classList.remove("no-scroll");
@@ -370,6 +399,7 @@
             recipe.name = document.getElementById("editName").value || "Unnamed Recipe";
             recipe.ingredients = document.getElementById("editIngredients").value || "";
             recipe.instructions = document.getElementById("editInstructions").value || "";
+            saveToStorage();
             renderRecipes();
             viewRecipe(currentRecipeIndex);
             document.getElementById("recipeEdit").style.display = "none";
@@ -378,9 +408,55 @@
 
         function deleteRecipe() {
             recipes.splice(currentRecipeIndex, 1);
+            saveToStorage();
             document.getElementById("viewModal").style.display = "none";
             document.body.classList.remove("no-scroll");
             renderRecipes();
+        }
+
+        function openMealPlanModal() {
+            const mealPlanList = document.getElementById("mealPlanList");
+            mealPlanList.innerHTML = "";
+            const today = new Date(); // Use current date
+            for (let i = 0; i < 7; i++) {
+                const date = new Date(today);
+                date.setDate(today.getDate() + i);
+                const dateString = date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+                const dayKey = date.toISOString().split("T")[0];
+                const currentMeal = mealPlan[dayKey] || "";
+
+                const div = document.createElement("div");
+                div.className = "meal-plan-day";
+                div.innerHTML = `
+                    <strong>${dateString}</strong>
+                    <input type="text" id="meal-${dayKey}" value="${currentMeal}" list="recipeList-${dayKey}" placeholder="Type or select a recipe...">
+                    <datalist id="recipeList-${dayKey}">
+                        <option value="">
+                        ${recipes.map(recipe => `<option value="${recipe.name}">`).join("")}
+                    </datalist>
+                `;
+                mealPlanList.appendChild(div);
+            }
+            document.getElementById("mealPlanModal").style.display = "flex";
+            document.body.classList.add("no-scroll");
+        }
+
+        function saveMealPlan() {
+            const today = new Date(); // Use current date
+            for (let i = 0; i < 7; i++) {
+                const date = new Date(today);
+                date.setDate(today.getDate() + i);
+                const dayKey = date.toISOString().split("T")[0];
+                const input = document.getElementById(`meal-${dayKey}`);
+                mealPlan[dayKey] = input.value.trim() || "";
+            }
+            saveToStorage();
+            closeMealPlanModal();
+        }
+
+        function closeMealPlanModal() {
+            document.getElementById("mealPlanModal").style.display = "none";
+            document.body.classList.remove("no-scroll");
         }
 
         // Initial render
