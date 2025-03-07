@@ -132,6 +132,9 @@
             color: #fff;
             resize: vertical;
         }
+        input[type="file"] {
+            padding: 5px;
+        }
         .save-btn, .edit-btn, .delete-btn, .back-btn, .close-btn {
             padding: 10px 20px;
             border: none;
@@ -219,9 +222,10 @@
                 <button class="close-btn" onclick="closeAddModal()">Close</button>
             </div>
             <div id="write" class="tab-content">
-                <input type="text" id="writeName" placeholder="Recipe Name">
+                <input type="text" id="writeName" placeholder="Recipe Title">
                 <textarea id="writeIngredients" placeholder="Ingredients (one per line)"></textarea>
                 <textarea id="writeInstructions" placeholder="Instructions"></textarea>
+                <input type="file" id="writeImage" accept="image/*">
                 <button class="save-btn" onclick="addRecipe('write')">Save</button>
                 <button class="close-btn" onclick="closeAddModal()">Close</button>
             </div>
@@ -242,6 +246,7 @@
                 <input type="text" id="editName" placeholder="Recipe Name">
                 <textarea id="editIngredients" placeholder="Ingredients (one per line)"></textarea>
                 <textarea id="editInstructions" placeholder="Instructions"></textarea>
+                <input type="file" id="editImage" accept="image/*">
                 <button class="save-btn" onclick="saveEditedRecipe()">Save Changes</button>
             </div>
             <div>
@@ -264,9 +269,9 @@
 
     <script>
         let recipes = JSON.parse(localStorage.getItem("recipes")) || [
-            { name: "Spicy Ramen Bowl", image: "placeholder.jpg", ingredients: "Ramen noodles\nChili paste\nSoy sauce\nGreen onions\nEgg", instructions: "Boil water\nCook noodles for 3 minutes\nAdd chili and soy sauce\nTop with green onions\nAdd a boiled egg" },
-            { name: "Lemon Zest Cookies", image: "placeholder.jpg", ingredients: "Flour\nSugar\nLemon zest\nButter\nEgg", instructions: "Mix dry ingredients\nAdd lemon zest\nCream butter and sugar\nCombine all\nBake at 350°F for 12 minutes" },
-            { name: "Garlic Herb Salmon", image: "placeholder.jpg", ingredients: "Salmon fillet\nGarlic\nFresh herbs\nLemon juice\nOlive oil", instructions: "Season salmon with garlic and herbs\nDrizzle with lemon juice\nAdd olive oil\nGrill for 10 minutes\nRest for 5 minutes" }
+            { name: "Spicy Ramen Bowl", image: "images/ramen.jpg", ingredients: "Ramen noodles\nChili paste\nSoy sauce\nGreen onions\nEgg", instructions: "Boil water\nCook noodles for 3 minutes\nAdd chili and soy sauce\nTop with green onions\nAdd a boiled egg" },
+            { name: "Lemon Zest Cookies", image: "images/cookies.jpg", ingredients: "Flour\nSugar\nLemon zest\nButter\nEgg", instructions: "Mix dry ingredients\nAdd lemon zest\nCream butter and sugar\nCombine all\nBake at 350°F for 12 minutes" },
+            { name: "Garlic Herb Salmon", image: "images/salmon.jpg", ingredients: "Salmon fillet\nGarlic\nFresh herbs\nLemon juice\nOlive oil", instructions: "Season salmon with garlic and herbs\nDrizzle with lemon juice\nAdd olive oil\nGrill for 10 minutes\nRest for 5 minutes" }
         ];
         let mealPlan = JSON.parse(localStorage.getItem("mealPlan")) || {};
         let currentRecipeIndex = null;
@@ -291,7 +296,7 @@
                 const div = document.createElement("div");
                 div.className = "recipe-item";
                 div.innerHTML = `
-                    <img src="https://via.placeholder.com/100" class="recipe-image" alt="${recipe.name}">
+                    <img src="${recipe.image}" class="recipe-image" alt="${recipe.name}">
                     <span>${recipe.name}</span>
                 `;
                 div.onclick = () => viewRecipe(index);
@@ -324,20 +329,45 @@
         }
 
         function addRecipe(type) {
-            let newRecipe = { image: "placeholder.jpg" };
+            let newRecipe = {};
             if (type === "link") {
                 const link = document.getElementById("linkInput").value;
                 newRecipe.name = link ? `Recipe from ${link.split("/").pop()}` : "Unnamed Recipe";
                 newRecipe.ingredients = "Imported from link";
                 newRecipe.instructions = "See link";
+                newRecipe.image = "board.webp"; // Default for link
             } else if (type === "write") {
                 newRecipe.name = document.getElementById("writeName").value || "Unnamed Recipe";
                 newRecipe.ingredients = document.getElementById("writeIngredients").value || "";
                 newRecipe.instructions = document.getElementById("writeInstructions").value || "";
+                const fileInput = document.getElementById("writeImage");
+                if (fileInput.files && fileInput.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        newRecipe.image = e.target.result;
+                        recipes.push(newRecipe);
+                        saveToStorage();
+                        renderRecipes();
+                        document.getElementById("addModal").style.display = "none";
+                        document.body.classList.remove("no-scroll");
+                        clearAddModal();
+                    };
+                    reader.readAsDataURL(fileInput.files[0]);
+                } else {
+                    newRecipe.image = "variety.webp"; // Default if no image
+                    recipes.push(newRecipe);
+                    saveToStorage();
+                    renderRecipes();
+                    document.getElementById("addModal").style.display = "none";
+                    document.body.classList.remove("no-scroll");
+                    clearAddModal();
+                }
+                return; // Exit early to wait for FileReader
             } else if (type === "upload") {
                 newRecipe.name = document.getElementById("uploadName").value || "Uploaded Recipe";
                 newRecipe.ingredients = document.getElementById("uploadDetails").value || "";
                 newRecipe.instructions = "From uploaded image";
+                newRecipe.image = "variety.webp"; // Default for upload
             }
             recipes.push(newRecipe);
             saveToStorage();
@@ -352,6 +382,7 @@
             document.getElementById("writeName").value = "";
             document.getElementById("writeIngredients").value = "";
             document.getElementById("writeInstructions").value = "";
+            document.getElementById("writeImage").value = "";
             document.getElementById("uploadName").value = "";
             document.getElementById("uploadDetails").value = "";
         }
@@ -362,7 +393,7 @@
             const viewDiv = document.getElementById("recipeView");
             viewDiv.innerHTML = `
                 <h2>${recipe.name}</h2>
-                <img src="https://via.placeholder.com/200" alt="${recipe.name}">
+                <img src="${recipe.image}" alt="${recipe.name}">
                 <h3>Ingredients:</h3>
                 <p>${recipe.ingredients}</p>
                 <h3>Instructions:</h3>
@@ -386,6 +417,7 @@
                 document.getElementById("editName").value = recipe.name;
                 document.getElementById("editIngredients").value = recipe.ingredients;
                 document.getElementById("editInstructions").value = recipe.instructions;
+                document.getElementById("editImage").value = ""; // Reset file input
                 editDiv.style.display = "block";
                 document.getElementById("recipeView").style.display = "none";
             } else {
@@ -399,11 +431,25 @@
             recipe.name = document.getElementById("editName").value || "Unnamed Recipe";
             recipe.ingredients = document.getElementById("editIngredients").value || "";
             recipe.instructions = document.getElementById("editInstructions").value || "";
-            saveToStorage();
-            renderRecipes();
-            viewRecipe(currentRecipeIndex);
-            document.getElementById("recipeEdit").style.display = "none";
-            document.getElementById("recipeView").style.display = "block";
+            const fileInput = document.getElementById("editImage");
+            if (fileInput.files && fileInput.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    recipe.image = e.target.result;
+                    saveToStorage();
+                    renderRecipes();
+                    viewRecipe(currentRecipeIndex);
+                    document.getElementById("recipeEdit").style.display = "none";
+                    document.getElementById("recipeView").style.display = "block";
+                };
+                reader.readAsDataURL(fileInput.files[0]);
+            } else {
+                saveToStorage();
+                renderRecipes();
+                viewRecipe(currentRecipeIndex);
+                document.getElementById("recipeEdit").style.display = "none";
+                document.getElementById("recipeView").style.display = "block";
+            }
         }
 
         function deleteRecipe() {
@@ -417,7 +463,7 @@
         function openMealPlanModal() {
             const mealPlanList = document.getElementById("mealPlanList");
             mealPlanList.innerHTML = "";
-            const today = new Date(); // Use current date
+            const today = new Date();
             for (let i = 0; i < 7; i++) {
                 const date = new Date(today);
                 date.setDate(today.getDate() + i);
@@ -442,7 +488,7 @@
         }
 
         function saveMealPlan() {
-            const today = new Date(); // Use current date
+            const today = new Date();
             for (let i = 0; i < 7; i++) {
                 const date = new Date(today);
                 date.setDate(today.getDate() + i);
