@@ -335,7 +335,7 @@
                 newRecipe.name = link ? `Recipe from ${link.split("/").pop()}` : "Unnamed Recipe";
                 newRecipe.ingredients = "Imported from link";
                 newRecipe.instructions = "See link";
-                newRecipe.image = "board.webp"; // Default for link
+                newRecipe.image = "./Images/board.webp"; // Default for link
             } else if (type === "write") {
                 newRecipe.name = document.getElementById("writeName").value || "Unnamed Recipe";
                 newRecipe.ingredients = document.getElementById("writeIngredients").value || "";
@@ -354,7 +354,7 @@
                     };
                     reader.readAsDataURL(fileInput.files[0]);
                 } else {
-                    newRecipe.image = "variety.webp"; // Default if no image
+                    newRecipe.image = "./Images/variety.webp"; // Default if no image
                     recipes.push(newRecipe);
                     saveToStorage();
                     renderRecipes();
@@ -367,7 +367,7 @@
                 newRecipe.name = document.getElementById("uploadName").value || "Uploaded Recipe";
                 newRecipe.ingredients = document.getElementById("uploadDetails").value || "";
                 newRecipe.instructions = "From uploaded image";
-                newRecipe.image = "variety.webp"; // Default for upload
+                newRecipe.image = "./Images/variety.webp"; // Default for upload
             }
             recipes.push(newRecipe);
             saveToStorage();
