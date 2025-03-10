@@ -292,14 +292,14 @@
                 recipeList.innerHTML = "<p>No recipes found.</p>";
                 return;
             }
-            filteredRecipes.forEach((recipe, index) => {
+            filteredRecipes.forEach((recipe) => { // Removed index here
                 const div = document.createElement("div");
                 div.className = "recipe-item";
                 div.innerHTML = `
                     <img src="${recipe.image}" class="recipe-image" alt="${recipe.name}">
                     <span>${recipe.name}</span>
                 `;
-                div.onclick = () => viewRecipe(index);
+                div.onclick = () => viewRecipe(recipe); // Pass the recipe object
                 recipeList.appendChild(div);
             });
         }
@@ -353,8 +353,9 @@
                         clearAddModal();
                     };
                     reader.readAsDataURL(fileInput.files[0]);
+                    return;
                 } else {
-                    newRecipe.image = "./Images/variety.webp"; // Default if no image
+                    newRecipe.image = "./Images/variety.webp";
                     recipes.push(newRecipe);
                     saveToStorage();
                     renderRecipes();
@@ -362,12 +363,12 @@
                     document.body.classList.remove("no-scroll");
                     clearAddModal();
                 }
-                return; // Exit early to wait for FileReader
+                return;
             } else if (type === "upload") {
                 newRecipe.name = document.getElementById("uploadName").value || "Uploaded Recipe";
                 newRecipe.ingredients = document.getElementById("uploadDetails").value || "";
                 newRecipe.instructions = "From uploaded image";
-                newRecipe.image = "./Images/variety.webp"; // Default for upload
+                newRecipe.image = "./Images/variety.webp";
             }
             recipes.push(newRecipe);
             saveToStorage();
@@ -387,9 +388,8 @@
             document.getElementById("uploadDetails").value = "";
         }
 
-        function viewRecipe(index) {
-            currentRecipeIndex = index;
-            const recipe = recipes[index];
+        function viewRecipe(recipe) {
+            currentRecipeIndex = recipes.indexOf(recipe); // Find the index in the original array
             const viewDiv = document.getElementById("recipeView");
             viewDiv.innerHTML = `
                 <h2>${recipe.name}</h2>
@@ -417,7 +417,7 @@
                 document.getElementById("editName").value = recipe.name;
                 document.getElementById("editIngredients").value = recipe.ingredients;
                 document.getElementById("editInstructions").value = recipe.instructions;
-                document.getElementById("editImage").value = ""; // Reset file input
+                document.getElementById("editImage").value = "";
                 editDiv.style.display = "block";
                 document.getElementById("recipeView").style.display = "none";
             } else {
@@ -438,7 +438,7 @@
                     recipe.image = e.target.result;
                     saveToStorage();
                     renderRecipes();
-                    viewRecipe(currentRecipeIndex);
+                    viewRecipe(recipe); // Pass the updated recipe object
                     document.getElementById("recipeEdit").style.display = "none";
                     document.getElementById("recipeView").style.display = "block";
                 };
@@ -446,7 +446,7 @@
             } else {
                 saveToStorage();
                 renderRecipes();
-                viewRecipe(currentRecipeIndex);
+                viewRecipe(recipe); // Pass the updated recipe object
                 document.getElementById("recipeEdit").style.display = "none";
                 document.getElementById("recipeView").style.display = "block";
             }
