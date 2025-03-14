@@ -268,19 +268,21 @@
     </div>
 
     <script>
-        let recipes = JSON.parse(localStorage.getItem("recipes")) || [
-            { name: "Spicy Ramen Bowl", image: "images/ramen.jpg", ingredients: "Ramen noodles\nChili paste\nSoy sauce\nGreen onions\nEgg", instructions: "Boil water\nCook noodles for 3 minutes\nAdd chili and soy sauce\nTop with green onions\nAdd a boiled egg" },
-            { name: "Lemon Zest Cookies", image: "images/cookies.jpg", ingredients: "Flour\nSugar\nLemon zest\nButter\nEgg", instructions: "Mix dry ingredients\nAdd lemon zest\nCream butter and sugar\nCombine all\nBake at 350°F for 12 minutes" },
-            { name: "Garlic Herb Salmon", image: "images/salmon.jpg", ingredients: "Salmon fillet\nGarlic\nFresh herbs\nLemon juice\nOlive oil", instructions: "Season salmon with garlic and herbs\nDrizzle with lemon juice\nAdd olive oil\nGrill for 10 minutes\nRest for 5 minutes" }
-        ];
-        let mealPlan = JSON.parse(localStorage.getItem("mealPlan")) || {};
-        let currentRecipeIndex = null;
-
-        function saveToStorage() {
-            localStorage.setItem("recipes", JSON.stringify(recipes));
-            localStorage.setItem("mealPlan", JSON.stringify(mealPlan));
+        let recipes = [];
+        let mealPlan = {};
+        let currentRecipe = null;
+    
+        async function fetchRecipes() {
+            const response = await fetch('/api/recipes');
+            recipes = await response.json();
+            renderRecipes();
         }
-
+    
+        async function fetchMealPlan() {
+            const response = await fetch('/api/meal_plan');
+            mealPlan = await response.json();
+        }
+    
         function renderRecipes(filter = "") {
             const recipeList = document.getElementById("recipeList");
             recipeList.innerHTML = "";
@@ -292,50 +294,58 @@
                 recipeList.innerHTML = "<p>No recipes found.</p>";
                 return;
             }
-            filteredRecipes.forEach((recipe) => { // Removed index here
+            filteredRecipes.forEach(recipe => {
                 const div = document.createElement("div");
                 div.className = "recipe-item";
                 div.innerHTML = `
                     <img src="${recipe.image}" class="recipe-image" alt="${recipe.name}">
                     <span>${recipe.name}</span>
                 `;
-                div.onclick = () => viewRecipe(recipe); // Pass the recipe object
+                div.onclick = () => viewRecipe(recipe);
                 recipeList.appendChild(div);
             });
         }
-
-        function searchRecipes() {
+    
+        async function searchRecipes() {
             const query = document.querySelector(".search-bar").value;
             renderRecipes(query);
         }
-
+    
         function openAddModal() {
             document.getElementById("addModal").style.display = "flex";
             showTab("link");
             document.body.classList.add("no-scroll");
         }
-
+    
         function closeAddModal() {
             document.getElementById("addModal").style.display = "none";
             document.body.classList.remove("no-scroll");
             clearAddModal();
         }
-
+    
         function showTab(tab) {
             document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active"));
             document.querySelectorAll(".tab-content").forEach(content => content.classList.remove("active"));
             document.querySelector(`button[onclick="showTab('${tab}')"]`).classList.add("active");
             document.getElementById(tab).classList.add("active");
         }
-
-        function addRecipe(type) {
+    
+        async function addRecipe(type) {
             let newRecipe = {};
             if (type === "link") {
                 const link = document.getElementById("linkInput").value;
-                newRecipe.name = link ? `Recipe from ${link.split("/").pop()}` : "Unnamed Recipe";
-                newRecipe.ingredients = "Imported from link";
-                newRecipe.instructions = "See link";
-                newRecipe.image = "./Images/board.webp"; // Default for link
+                const response = await fetch('/api/scrape', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: link })
+                });
+                if (response.ok) {
+                    await fetchRecipes();
+                    closeAddModal();
+                } else {
+                    alert('Failed to scrape recipe: ' + (await response.json()).error);
+                }
+                return;
             } else if (type === "write") {
                 newRecipe.name = document.getElementById("writeName").value || "Unnamed Recipe";
                 newRecipe.ingredients = document.getElementById("writeIngredients").value || "";
@@ -343,41 +353,38 @@
                 const fileInput = document.getElementById("writeImage");
                 if (fileInput.files && fileInput.files[0]) {
                     const reader = new FileReader();
-                    reader.onload = function(e) {
+                    reader.onload = async function(e) {
                         newRecipe.image = e.target.result;
-                        recipes.push(newRecipe);
-                        saveToStorage();
-                        renderRecipes();
-                        document.getElementById("addModal").style.display = "none";
-                        document.body.classList.remove("no-scroll");
-                        clearAddModal();
+                        await saveRecipe(newRecipe);
                     };
                     reader.readAsDataURL(fileInput.files[0]);
                     return;
                 } else {
-                    newRecipe.image = "./Images/variety.webp";
-                    recipes.push(newRecipe);
-                    saveToStorage();
-                    renderRecipes();
-                    document.getElementById("addModal").style.display = "none";
-                    document.body.classList.remove("no-scroll");
-                    clearAddModal();
+                    newRecipe.image = "/images/variety.webp";
                 }
-                return;
             } else if (type === "upload") {
                 newRecipe.name = document.getElementById("uploadName").value || "Uploaded Recipe";
                 newRecipe.ingredients = document.getElementById("uploadDetails").value || "";
                 newRecipe.instructions = "From uploaded image";
-                newRecipe.image = "./Images/variety.webp";
+                newRecipe.image = "/images/variety.webp";
             }
-            recipes.push(newRecipe);
-            saveToStorage();
-            renderRecipes();
-            document.getElementById("addModal").style.display = "none";
-            document.body.classList.remove("no-scroll");
-            clearAddModal();
+            await saveRecipe(newRecipe);
         }
-
+    
+        async function saveRecipe(recipe) {
+            const response = await fetch('/api/recipes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(recipe)
+            });
+            if (response.ok) {
+                await fetchRecipes();
+                closeAddModal();
+            } else {
+                alert('Failed to add recipe: ' + (await response.json()).error);
+            }
+        }
+    
         function clearAddModal() {
             document.getElementById("linkInput").value = "";
             document.getElementById("writeName").value = "";
@@ -387,9 +394,9 @@
             document.getElementById("uploadName").value = "";
             document.getElementById("uploadDetails").value = "";
         }
-
+    
         function viewRecipe(recipe) {
-            currentRecipeIndex = recipes.indexOf(recipe); // Find the index in the original array
+            currentRecipe = recipe;
             const viewDiv = document.getElementById("recipeView");
             viewDiv.innerHTML = `
                 <h2>${recipe.name}</h2>
@@ -404,19 +411,18 @@
             document.getElementById("viewModal").style.display = "flex";
             document.body.classList.add("no-scroll");
         }
-
+    
         function closeViewModal() {
             document.getElementById("viewModal").style.display = "none";
             document.body.classList.remove("no-scroll");
         }
-
+    
         function toggleEdit() {
             const editDiv = document.getElementById("recipeEdit");
-            const recipe = recipes[currentRecipeIndex];
             if (editDiv.style.display === "none") {
-                document.getElementById("editName").value = recipe.name;
-                document.getElementById("editIngredients").value = recipe.ingredients;
-                document.getElementById("editInstructions").value = recipe.instructions;
+                document.getElementById("editName").value = currentRecipe.name;
+                document.getElementById("editIngredients").value = currentRecipe.ingredients;
+                document.getElementById("editInstructions").value = currentRecipe.instructions;
                 document.getElementById("editImage").value = "";
                 editDiv.style.display = "block";
                 document.getElementById("recipeView").style.display = "none";
@@ -425,41 +431,56 @@
                 document.getElementById("recipeView").style.display = "block";
             }
         }
-
-        function saveEditedRecipe() {
-            const recipe = recipes[currentRecipeIndex];
-            recipe.name = document.getElementById("editName").value || "Unnamed Recipe";
-            recipe.ingredients = document.getElementById("editIngredients").value || "";
-            recipe.instructions = document.getElementById("editInstructions").value || "";
+    
+        async function saveEditedRecipe() {
+            const updatedRecipe = {
+                name: document.getElementById("editName").value || "Unnamed Recipe",
+                ingredients: document.getElementById("editIngredients").value || "",
+                instructions: document.getElementById("editInstructions").value || ""
+            };
             const fileInput = document.getElementById("editImage");
             if (fileInput.files && fileInput.files[0]) {
                 const reader = new FileReader();
-                reader.onload = function(e) {
-                    recipe.image = e.target.result;
-                    saveToStorage();
-                    renderRecipes();
-                    viewRecipe(recipe); // Pass the updated recipe object
-                    document.getElementById("recipeEdit").style.display = "none";
-                    document.getElementById("recipeView").style.display = "block";
+                reader.onload = async function(e) {
+                    updatedRecipe.image = e.target.result;
+                    await updateRecipe(updatedRecipe);
                 };
                 reader.readAsDataURL(fileInput.files[0]);
             } else {
-                saveToStorage();
-                renderRecipes();
-                viewRecipe(recipe); // Pass the updated recipe object
-                document.getElementById("recipeEdit").style.display = "none";
-                document.getElementById("recipeView").style.display = "block";
+                updatedRecipe.image = currentRecipe.image;
+                await updateRecipe(updatedRecipe);
             }
         }
-
-        function deleteRecipe() {
-            recipes.splice(currentRecipeIndex, 1);
-            saveToStorage();
-            document.getElementById("viewModal").style.display = "none";
-            document.body.classList.remove("no-scroll");
-            renderRecipes();
+    
+        async function updateRecipe(recipe) {
+            const response = await fetch(`/api/recipes/${currentRecipe.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(recipe)
+            });
+            if (response.ok) {
+                currentRecipe = { ...recipe, id: currentRecipe.id }; // Preserve id
+                await fetchRecipes();
+                viewRecipe(currentRecipe);
+                document.getElementById("recipeEdit").style.display = "none";
+                document.getElementById("recipeView").style.display = "block";
+            } else {
+                alert('Failed to update recipe: ' + (await response.json()).error);
+            }
         }
-
+    
+        async function deleteRecipe() {
+            const response = await fetch(`/api/recipes/${currentRecipe.id}`, {
+                method: 'DELETE'
+            });
+            if (response.ok) {
+                await fetchRecipes();
+                closeViewModal();
+            } else {
+                alert('Failed to delete recipe: ' + (await response.json()).error);
+            }
+        }
+    
         function openMealPlanModal() {
             const mealPlanList = document.getElementById("mealPlanList");
             mealPlanList.innerHTML = "";
@@ -470,7 +491,7 @@
                 const dateString = date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
                 const dayKey = date.toISOString().split("T")[0];
                 const currentMeal = mealPlan[dayKey] || "";
-
+    
                 const div = document.createElement("div");
                 div.className = "meal-plan-day";
                 div.innerHTML = `
@@ -486,27 +507,34 @@
             document.getElementById("mealPlanModal").style.display = "flex";
             document.body.classList.add("no-scroll");
         }
-
-        function saveMealPlan() {
+    
+        async function saveMealPlan() {
+            const newMealPlan = {};
             const today = new Date();
             for (let i = 0; i < 7; i++) {
                 const date = new Date(today);
                 date.setDate(today.getDate() + i);
                 const dayKey = date.toISOString().split("T")[0];
                 const input = document.getElementById(`meal-${dayKey}`);
-                mealPlan[dayKey] = input.value.trim() || "";
+                newMealPlan[dayKey] = input.value.trim() || "";
             }
-            saveToStorage();
+            await fetch('/api/meal_plan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newMealPlan)
+            });
+            mealPlan = newMealPlan;
             closeMealPlanModal();
         }
-
+    
         function closeMealPlanModal() {
             document.getElementById("mealPlanModal").style.display = "none";
             document.body.classList.remove("no-scroll");
         }
-
-        // Initial render
-        renderRecipes();
+    
+        // Initial fetch and render
+        fetchRecipes();
+        fetchMealPlan();
     </script>
 </body>
 </html>
