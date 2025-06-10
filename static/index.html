@@ -214,14 +214,26 @@
             align-items: center;
             margin-top: 15px;
         }
+        #ingredientForm {
+            display: flex;
+            flex-direction: column;
+            gap: 10px; /* Space between each ingredient row */
+        }
+
         #ingredientForm label {
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding: 5px 0;
         }
+
+        #ingredientForm span {
+            flex-grow: 1; /* Makes the ingredient text take up available space */
+            text-align: left;
+        }
+
         #ingredientForm input[type="checkbox"] {
-            margin-left: 10px;
+            margin-left: 20px; /* Ensures checkboxes are pushed to the right */
         }
     </style>
 </head>
@@ -333,7 +345,6 @@
                     <input type="checkbox" id="${id}" value="${ingredient}">
                 `;
                 form.appendChild(label);
-                form.appendChild(document.createElement('br'));
             });
 
             document.getElementById('ingredientSelectorModal').style.display = 'flex';
@@ -349,15 +360,16 @@
             const selected = [];
             const checkboxes = document.querySelectorAll('#ingredientForm input[type="checkbox"]');
             checkboxes.forEach(box => {
-                if (box.checked) selected.push(box.value);
+                if (box.checked) selected.push({ item: box.value, checked: false });
             });
 
             const shoppingList = JSON.parse(localStorage.getItem('shoppingList') || '[]');
             const newList = [...shoppingList, ...selected];
-            localStorage.setItem('shoppingList', JSON.stringify([...new Set(newList)]));
+            localStorage.setItem('shoppingList', JSON.stringify([...new Set(newList.map(JSON.stringify))].map(JSON.parse)));
 
             closeIngredientSelector();
-            alert(`Selected ingredients from ${currentRecipe ? currentRecipe.name : 'recipe'} added to shopping list!`);
+            const recipeName = currentRecipe && currentRecipe.name ? currentRecipe.name : 'recipe';
+            alert(`Selected ingredients from ${recipeName} added to shopping list!`);
         }
 
         let recipes = [];
@@ -487,18 +499,18 @@
         }
     
         function viewRecipe(recipe) {
-            currentRecipe = recipe;
+            currentRecipe = { ...recipe, name: recipe.name || 'Unnamed Recipe' }; // Ensure name exists
             const viewDiv = document.getElementById("recipeView");
             viewDiv.innerHTML = `
-                <h2>${recipe.name}</h2>
-                <img src="${recipe.image}" alt="${recipe.name}">
+                <h2>${currentRecipe.name}</h2>
+                <img src="${currentRecipe.image}" alt="${currentRecipe.name}">
                 <div class="ingredient-header">
                     <h3>Ingredients:</h3>
                     <button class="add-btn" onclick="openIngredientSelector()">+ List</button>
                 </div>
-                <p id="viewIngredients">${recipe.ingredients}</p>
+                <p id="viewIngredients">${currentRecipe.ingredients}</p>
                 <h3>Instructions:</h3>
-                <p>${recipe.instructions}</p>
+                <p>${currentRecipe.instructions}</p>
             `;
             document.getElementById("recipeEdit").style.display = "none";
             document.getElementById("recipeView").style.display = "block";
