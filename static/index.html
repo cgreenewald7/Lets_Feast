@@ -195,12 +195,41 @@
             width: 70%;
             display: inline-block;
         }
+        #shoppingList li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #2a2a2a;
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        #shoppingList li.checked {
+            text-decoration: line-through;
+            color: #888;
+        }
+        .ingredient-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+        }
+        #ingredientForm label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 0;
+        }
+        #ingredientForm input[type="checkbox"] {
+            margin-left: 10px;
+        }
     </style>
 </head>
 <body>
     <div class="nav-bar">
         <input type="text" class="search-bar" placeholder="Search recipes or ingredients..." onkeyup="searchRecipes()">
         <button class="meal-plan-btn" onclick="openMealPlanModal()">Meal Plan</button>
+        <button class="add-btn" onclick="openShoppingList()">🛒Shopping List</button>
         <button class="add-btn" onclick="openAddModal()">Add Recipes</button>
     </div>
 
@@ -238,6 +267,15 @@
         </div>
     </div>
 
+    <!-- Shopping List Modal -->
+    <div class="modal" id="shoppingModal">
+        <div class="modal-content">
+            <h2 style="margin-bottom: 15px;">Shopping List</h2>
+            <ul id="shoppingList" style="list-style: none; padding: 0;"></ul>
+            <button class="close-btn" onclick="closeShoppingList()">Close</button>
+        </div>
+    </div>
+
     <!-- View/Edit Recipe Modal -->
     <div class="modal" id="viewModal">
         <div class="modal-content">
@@ -267,10 +305,63 @@
         </div>
     </div>
 
+    <div class="modal" id="ingredientSelectorModal">
+        <div class="modal-content">
+            <h3>Select Ingredients to Add</h3>
+            <form id="ingredientForm"></form>
+            <button class="save-btn" onclick="addSelectedIngredients()">Add to Shopping List</button>
+            <button class="close-btn" onclick="closeIngredientSelector()">Cancel</button>
+        </div>
+    </div>
+
     <script>
+        let currentIngredients = [];
+        let currentRecipe = null;
+
+        function openIngredientSelector() {
+            const ingredientText = document.getElementById('viewIngredients').textContent;
+            currentIngredients = ingredientText.split('\n').map(i => i.trim()).filter(i => i);
+            
+            const form = document.getElementById('ingredientForm');
+            form.innerHTML = '';
+            
+            currentIngredients.forEach((ingredient, idx) => {
+                const id = `ingredient-${idx}`;
+                const label = document.createElement('label');
+                label.innerHTML = `
+                    <span>${ingredient}</span>
+                    <input type="checkbox" id="${id}" value="${ingredient}">
+                `;
+                form.appendChild(label);
+                form.appendChild(document.createElement('br'));
+            });
+
+            document.getElementById('ingredientSelectorModal').style.display = 'flex';
+            document.body.classList.add('no-scroll');
+        }
+
+        function closeIngredientSelector() {
+            document.getElementById('ingredientSelectorModal').style.display = 'none';
+            document.body.classList.remove('no-scroll');
+        }
+
+        function addSelectedIngredients() {
+            const selected = [];
+            const checkboxes = document.querySelectorAll('#ingredientForm input[type="checkbox"]');
+            checkboxes.forEach(box => {
+                if (box.checked) selected.push(box.value);
+            });
+
+            const shoppingList = JSON.parse(localStorage.getItem('shoppingList') || '[]');
+            const newList = [...shoppingList, ...selected];
+            localStorage.setItem('shoppingList', JSON.stringify([...new Set(newList)]));
+
+            closeIngredientSelector();
+            alert(`Selected ingredients from ${currentRecipe ? currentRecipe.name : 'recipe'} added to shopping list!`);
+        }
+
         let recipes = [];
         let mealPlan = {};
-        let currentRecipe = null;
     
         async function fetchRecipes() {
             const response = await fetch('/api/recipes');
@@ -307,7 +398,7 @@
         }
     
         async function searchRecipes() {
-            const query = document.querySelector(".search-bar").value;
+            const query = document.querySelector(".search-bar").value.toLowerCase();
             renderRecipes(query);
         }
     
@@ -401,8 +492,11 @@
             viewDiv.innerHTML = `
                 <h2>${recipe.name}</h2>
                 <img src="${recipe.image}" alt="${recipe.name}">
-                <h3>Ingredients:</h3>
-                <p>${recipe.ingredients}</p>
+                <div class="ingredient-header">
+                    <h3>Ingredients:</h3>
+                    <button class="add-btn" onclick="openIngredientSelector()">+ List</button>
+                </div>
+                <p id="viewIngredients">${recipe.ingredients}</p>
                 <h3>Instructions:</h3>
                 <p>${recipe.instructions}</p>
             `;
@@ -459,7 +553,7 @@
                 body: JSON.stringify(recipe)
             });
             if (response.ok) {
-                currentRecipe = { ...recipe, id: currentRecipe.id }; // Preserve id
+                currentRecipe = { ...recipe, id: currentRecipe.id };
                 await fetchRecipes();
                 viewRecipe(currentRecipe);
                 document.getElementById("recipeEdit").style.display = "none";
@@ -531,10 +625,48 @@
             document.getElementById("mealPlanModal").style.display = "none";
             document.body.classList.remove("no-scroll");
         }
+
+        function openShoppingList() {
+            loadShoppingList();
+            document.getElementById('shoppingModal').style.display = 'flex';
+            document.body.classList.add('no-scroll');
+        }
+
+        function closeShoppingList() {
+            document.getElementById('shoppingModal').style.display = 'none';
+            document.body.classList.remove('no-scroll');
+        }
+
+        function loadShoppingList() {
+            const list = JSON.parse(localStorage.getItem('shoppingList') || '[]');
+            const ul = document.getElementById('shoppingList');
+            ul.innerHTML = '';
+            list.forEach((entry, index) => {
+                const li = document.createElement('li');
+                li.className = entry.checked ? 'checked' : '';
+                li.innerHTML = `
+                    <span onclick="toggleCheck(${index})" style="cursor:pointer;">${entry.item}</span>
+                    <button onclick="removeItem(${index})" class="delete-btn">Remove</button>`;
+                ul.appendChild(li);
+            });
+        }
+
+        function toggleCheck(index) {
+            const list = JSON.parse(localStorage.getItem('shoppingList') || '[]');
+            list[index].checked = !list[index].checked;
+            localStorage.setItem('shoppingList', JSON.stringify(list));
+            loadShoppingList();
+        }
+
+        function removeItem(index) {
+            const list = JSON.parse(localStorage.getItem('shoppingList') || '[]');
+            list.splice(index, 1);
+            localStorage.setItem('shoppingList', JSON.stringify(list));
+            loadShoppingList();
+        }
     
-        // Initial fetch and render
         fetchRecipes();
         fetchMealPlan();
     </script>
 </body>
-</html>
+</html>s

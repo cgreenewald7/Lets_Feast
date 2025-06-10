@@ -119,3 +119,6 @@ def manage_meal_plan():
 if __name__ == '__main__':
     init_db()
     app.run(debug=True, host='0.0.0.0', port=5000, threaded=True)  # Enable threading
+
+
+    # when i click on a recipe and then add ingredients, the check boxes are not all in one column at the far right of the box, and when i add an ingredient and then view my shopping cart it still says undefined
